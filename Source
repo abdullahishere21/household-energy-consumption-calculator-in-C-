@@ -1,0 +1,1328 @@
+/***********************************************************************
+Matr.-Nr:                     3141571
+Nachname/Surname:             ISMAIEL
+Vorname/Given name:           ABDULLAH
+Uni-Email:                    abdullah.ismaiel@stud.uni-due.de
+Studiengang/Course of studis: 	Bachelor of Science Computer Engineering, ISE, Software Engineering
+***********************************************************************/
+
+
+
+#include <iostream>
+#include <string>
+#include <iomanip>
+#include <fstream>
+#include <sstream>
+#include <vector>
+#include <limits>
+
+using namespace std;
+
+
+const int ANNUAL_CONSUMPTION_PERSON = 200;
+const int ANNUAL_CONSUMPTION_SQM = 9;
+const int ANNUAL_CONSUMPTION_DEVICE = 200;
+const int COLUMN_WIDTH = 35;
+const int ELECTRIC_WATERHEATED = 550;
+
+
+enum Use {
+	once,
+	daily,
+	mo_fr,
+	sa_su,
+	weekly
+};
+
+Use stringToUse(const string& useStr) {
+	if (useStr == "daily") return daily;
+	else if (useStr == "Monday to Friday" || useStr == "mo_fr") return mo_fr;
+	else if (useStr == "Saturday and Sunday" || useStr == "sa_su") return sa_su;
+	else if (useStr == "weekly") return weekly;
+	else if (useStr == "once") return once;
+	return once;
+}
+
+int get_use_multiplier(Use use) {
+	switch (use) {
+	case once:
+		return 1;  // Use once a week
+	case daily:
+		return 7;  // Use daily
+	case mo_fr:
+		return 5;  // Use from Monday to Friday
+	case sa_su:
+		return 2;  // Use on Saturdays and Sundays
+	case weekly:
+		return 1;  // Use weekly
+	default:
+		return 0;  // Handle unknown frequency as needed
+	}
+}
+
+
+//void input_use(string choice, Use& use) {
+//	if (choice == "d") use = daily;
+//	else if (choice == "m") use = mo_fr;
+//	else if (choice == "o") use = once;
+//	else if (choice == "s") use = sa_su;
+//	else if (choice == "w") use = weekly;
+//
+//}
+
+class Device {
+
+private:
+
+	string description;
+	Device* next;
+
+public:
+
+	string get_description() const { return description; }
+
+	void set_description(const string& desc) { description = desc; }
+
+
+	Device* getNext() {
+		return this->next;
+	}
+
+	void set_next(Device* nextDevice) {
+		this->next = nextDevice;
+	}
+
+	Device(Device* nextDevice = nullptr) {
+
+		this->next = nextDevice;
+	}
+
+	virtual ~Device() {
+		cout << "Device: " << this->description << " (this:" << this << ") deleted" << endl;
+	}
+
+	// Public virtual member function for input
+	virtual void input() {
+		cout << "Enter device description: ";
+		getline(cin, this->description);
+	}
+
+	virtual void print(int intValue, float floatValue) const {
+		cout << setw(COLUMN_WIDTH) << left << "Description: " << this->get_description() << endl;
+	}
+
+	// Pure virtual function for annual_kWh without parameters
+	virtual float annual_kWh() const = 0;
+
+	// Pure virtual function for get_a_copy without parameters
+	virtual Device* get_a_copy() const = 0;
+
+	// Pure virtual function for get_string_for_file with one character as a parameter
+	virtual string get_string_for_file(char character) const = 0;
+
+
+
+
+
+};
+
+class Consumer : public Device {
+private:
+	float watt;
+	Use use;
+	static int objectCount; // Static variable to count the number of objects created
+
+public:
+
+	// Default constructor
+	Consumer(Device* device = nullptr) : Device(device), watt(0.0f), use(once) {
+
+		++objectCount;
+		this->set_description("");
+	}
+
+
+	// Destructor
+	virtual ~Consumer() {
+		objectCount;
+		cout << "consmer: " << get_description() << "  (this: " << this << ") deleted" << endl;
+	}
+
+	// Static getter function
+	static int getobjectcount() { return objectCount; }
+
+	// Getters
+	float get_watt() const { return watt; }
+	Use get_use() const { return use; }
+
+	// Setters
+	void set_watt(float w) { watt = w; }
+	void set_use(Use u) { use = u; }
+
+
+	// Implementation of the pure virtual function
+	virtual float annual_kWh() const override = 0;
+
+
+	
+	virtual Device* get_a_copy() const override = 0;
+
+	// Pure virtual function for get_string_for_file with one character as a parameter
+	virtual string get_string_for_file(char character)  const override = 0;
+
+	virtual void print(int intValue, float floatValue) const override = 0;
+
+	// Member function for input
+	void input() override {
+
+		Device::input();
+
+		cout << "How many watts will it have? ";
+		cin >> watt;
+
+
+		// Consume the remaining newline character
+		cin.ignore(numeric_limits<streamsize>::max(), '\n');
+
+		string useChoice;
+		cout << "How often will it be used?\n"
+			<< "daily  (d)\n"
+			<< "mo_fr  (m)\n"
+			<< "once   (o)\n"
+			<< "sa_su  (s)\n"
+			<< "weekly (w)? ";
+		cin >> useChoice;
+
+		// Convert the input string to the Use enum value
+		if (useChoice == "d") use = daily;
+		else if (useChoice == "m") use = mo_fr;
+		else if (useChoice == "o") use = once;
+		else if (useChoice == "s") use = sa_su;
+		else if (useChoice == "w") use = weekly;
+		else use = once; // Default to 'once' if the input doesn't match
+
+
+
+		// Consume the remaining newline character to prepare for the next input
+		cin.ignore(numeric_limits<streamsize>::max(), '\n');
+	}
+
+	// Helper function to convert the Use enum to a string
+	string useToString(Use use) const {
+		switch (use) {
+		case daily: return "daily";
+		case mo_fr: return "Monday to Friday";
+		case sa_su: return "Saturday and Sunday";
+		case weekly: return "weekly";
+		case once: return "once";
+		default: return "unknown";
+		}
+	}
+
+
+};
+
+int Consumer::objectCount = 0;
+
+
+class Producer : public Device {
+
+
+public:
+
+	// Default constructor
+	Producer(Device* device = nullptr) : Device(device) {
+
+		this->set_description("");
+	}
+
+	virtual ~Producer() {
+		
+		cout << "Producer: " << get_description() << "  (this: " << this << ") deleted" << endl;
+	}
+
+	// Pure virtual function override
+	virtual Device* get_a_copy() const override = 0;
+
+	// Pure virtual function for get_string_for_file with one character as a parameter
+	virtual string get_string_for_file(char character)  const override = 0;
+
+	// Implementation of the pure virtual function
+	float annual_kWh() const override = 0;
+
+	virtual void print(int intValue, float floatValue) const override = 0;
+
+	void input() override {
+
+		Device::input();
+	}
+
+};
+
+
+class Household {
+private:
+	int persons;
+	int squareMeters;
+	bool isWaterHeated;
+	float powerPrice;
+	string powerSupplier;
+	vector<Device*> devices; // Use pointers to devices
+
+public:
+	Household() : persons(0), squareMeters(0), isWaterHeated(false), powerPrice(0.0f), powerSupplier("") {}
+
+	// Destructor
+	~Household() {
+
+		for (const auto& device : devices) {
+			delete device;
+		}
+
+		// No need to delete consumers if they are not pointers
+		cout << "Household (this: " << this << ") deleted" << endl;
+
+	}
+
+
+	// getters 
+	int get_persons() const { return persons; }
+	int get_squareMeters() const { return squareMeters; }
+	bool get_isWaterHeated() const { return isWaterHeated; }
+	float get_powerPrice() const { return powerPrice; }
+	string get_powerSupplier() const { return powerSupplier; }
+	const vector<Device*>& get_devices() const { return devices; }
+
+	// Setters
+	void set_persons(int p) { persons = p; }
+	void set_squareMeters(int sqm) { squareMeters = sqm; }
+	void set_isWaterHeated(bool isHeated) { isWaterHeated = isHeated; }
+	void set_powerPrice(float price) { powerPrice = price; }
+	void set_powerSupplier(const string& supplier) { powerSupplier = supplier; }
+
+	// Member functions
+	void add_device(Device* device) {
+		devices.push_back(device);
+	}
+
+	void move_up(int position) {
+		if (position > 1 && position <= devices.size()) {
+			swap(devices[position - 1], devices[position - 2]);
+		}
+	}
+
+
+
+	void copy_devices(Household* fromHousehold, Household* toHousehold) {
+		for (const auto& device : fromHousehold->get_devices()) {
+
+			Device* newdevice = device->get_a_copy();
+
+			//// Add the new consumer to the target household
+			toHousehold->add_device(newdevice);
+		}
+	}
+
+
+
+	void input() {
+
+		cout << "How many square metres does the household have? ";
+		cin >> squareMeters;
+
+		cout << "How many persons live in this household? ";
+		cin >> persons;
+
+		char hotWaterInput;
+		cout << "Is hot water heated using electricity? (y(es) or n(o)) ";
+		cin >> hotWaterInput;
+		isWaterHeated = (hotWaterInput == 'y' || hotWaterInput == 'Y');
+
+		cout << "Power price for this household in EUR? ";
+		cin >> powerPrice;
+
+		cout << "Power supplier for this household? ";
+		cin.ignore();  // To clear the newline character from the buffer
+		getline(cin, powerSupplier);
+
+	}
+
+
+	float calculateTotalConsumption() const {
+		float total = 0.0f;
+		for (const auto& device : devices) {
+			total += device->annual_kWh();
+		}
+		return total;
+	}
+
+
+
+	// Member function for printing
+	void printhousehold() const {
+		cout << setw(COLUMN_WIDTH) << left << "(this: " << this << ")" << endl;
+		cout << setw(COLUMN_WIDTH) << left << "Price for one kWh: " << fixed << setprecision(2) << powerPrice * 100 << " ct/kWh" << endl;
+		cout << setw(COLUMN_WIDTH) << left << "Power Supplier: " << powerSupplier << endl;
+		cout << setw(COLUMN_WIDTH) << left << "Square Meters: " << squareMeters << " sqm" << endl;
+		cout << setw(COLUMN_WIDTH) << left << "Persons: " << persons << endl;
+		cout << setw(COLUMN_WIDTH) << left << "Water Heated Electrically: " << (isWaterHeated ? "Yes" : "No") << endl;
+		cout << setw(COLUMN_WIDTH) << left << "List of Consumers:" << endl;
+		cout << "----------------------------------------------------------------------\n";
+
+		// Iterate through consumers and print their details
+		for (size_t i = 0; i < devices.size(); ++i) {
+			cout << setw(4) << right << (i + 1) << ": ";
+			devices[i]->print(0, powerPrice);
+		}
+
+		// Calculating total power consumption and costs
+		float totalAnnualConsumption = calculateTotalConsumption();
+		float powerConsumptionSquareMeters = squareMeters * ANNUAL_CONSUMPTION_SQM;
+		float powerConsumptionAllPersons = persons * (isWaterHeated ? ELECTRIC_WATERHEATED : ANNUAL_CONSUMPTION_PERSON);
+		float totalPowerConsumption = totalAnnualConsumption + powerConsumptionSquareMeters + powerConsumptionAllPersons;
+		float totalCosts = totalPowerConsumption * powerPrice;
+
+		cout << setw(COLUMN_WIDTH) << left << "Power Consumption Square Meters: " << powerConsumptionSquareMeters << " kWh" << endl;
+		cout << setw(COLUMN_WIDTH) << left << "Power Consumption All Persons: " << powerConsumptionAllPersons << " kWh" << endl;
+		cout << setw(COLUMN_WIDTH) << left << "Total Annual Power Consumption: " << totalPowerConsumption << " kWh" << endl;
+		cout << setw(COLUMN_WIDTH) << left << "Total Annual Power Costs: " << totalCosts << " EUR" << endl;
+
+		cout << "===================================================================================================================" << endl;
+	}
+};
+
+class Address {
+private:
+	string street;
+	string no;  // House number
+	string zip;
+	string city;
+
+public:
+	// Overloaded constructor with default values
+	Address(const string& str = "", const string& n = "", const string& z = "", const string& c = "")
+		: street(str), no(n), zip(z), city(c) {}
+
+
+	~Address() {
+		cout << "Address: " << to_string() << " (this:" << this << ") deleted" << endl;
+	}
+
+
+	// Getter methods
+	string get_street() const { return street; }
+	string get_no() const { return no; }
+	string get_zip() const { return zip; }
+	string get_city() const { return city; }
+
+	// Setter methods
+	void set_street(const string& str) { street = str; }
+	void set_no(const string& n) { no = n; }
+	void set_zip(const string& z) { zip = z; }
+	void set_city(const string& c) { city = c; }
+
+
+	// Method for user input
+	void input() {
+		cout << "What is the street name? ";
+		getline(cin, street);
+
+		cout << "What is the house number? ";
+		getline(cin, no);
+
+		cout << "What is the ZIP code? ";
+		getline(cin, zip);
+
+		cout << "What is the city name? ";
+		getline(cin, city);
+	}
+
+	// Method to format the address as a single string
+	string to_string() const {
+		return street + " " + no + ", " + zip + " " + city;
+	}
+};
+
+class Immobile : public Consumer {
+private:
+	float watt_standby;
+	float hours;
+
+public:
+
+	//constructor 
+	Immobile(Device* device = nullptr) :Consumer(device) {
+	}
+
+	// Destructor
+	virtual ~Immobile() {
+		cout << "Immobile: " << get_description() << "  (this: " << this << ") deleted" << endl;
+	}
+
+	float get_watt_standby() const { return watt_standby; }
+	float get_hours() const { return hours; }
+	void set_watt_standby(float ws) { watt_standby = ws; }
+	void set_hours(float h) { hours = h; }
+
+	// Member functions for calculations
+	virtual float annual_hours_of_use() const {
+		switch (this->get_use()) {
+		case daily: return hours * 365;
+		case mo_fr: return hours * 5 * 52;
+		case sa_su: return hours * 2 * 52;
+		case weekly: return hours * 52;
+		default: return hours;
+		}
+	}
+
+	virtual float annual_hours_of_standby() const {
+		return 8760 - annual_hours_of_use();
+	}
+
+	// Implementation of the pure virtual function
+	virtual float annual_kWh() const override
+	{
+
+		float activeHours = annual_hours_of_use();
+		float standbyHours = annual_hours_of_standby();
+
+		return (this->get_watt() * activeHours + watt_standby * standbyHours) / 1000;
+	}
+
+	// Member function for input
+	virtual void input() override {
+		Consumer::input();
+
+		cout << "How many watts standby will it have? ";
+		cin >> watt_standby;
+
+		cout << "How many hours will it be operating then? ";
+		cin >> hours;
+
+	}
+
+	virtual void print(int intValue, float powerPrice) const override {
+		Device::print(intValue, powerPrice);
+		cout << "                              (this: " << this << ")" << endl;
+		cout << setw(COLUMN_WIDTH) << "Power consumption (W): " << this->get_watt() << endl;
+		cout << setw(COLUMN_WIDTH) << "Standby consumption (W): " << watt_standby << endl;
+		cout << setw(COLUMN_WIDTH) << "Usage: " << useToString(this->get_use()) << endl;
+		cout << setw(COLUMN_WIDTH) << "Annual hours of use: " << annual_hours_of_use() << endl;
+		cout << setw(COLUMN_WIDTH) << "Annual hours of standby: " << annual_hours_of_standby() << endl;
+		cout << setw(COLUMN_WIDTH) << "Annual consumption (kWh): " << annual_kWh() << endl;
+		cout << setw(COLUMN_WIDTH) << "Annual costs (EUR): " << annual_kWh() * powerPrice << endl; // Assuming get_powerPrice() is accessible 
+
+		cout << "****************************************************************************************************************" << endl;
+
+	}
+
+
+	// Implementierung der virtuellen Funktion in der Klasse Immobile
+	virtual Device* get_a_copy() const override {
+
+		Immobile* copy = new Immobile;
+		*copy = *this;
+		return copy;
+
+	}
+
+
+	virtual string get_string_for_file(char separator) const override {
+		//Consumer::get_string_for_file(separator);
+		std::stringstream ss;
+		ss << "Immobile" << separator << this->get_description() << separator << this->get_hours() << separator << this->get_use()
+			<< separator << this->get_watt() << separator << this->get_watt_standby(); // Add other attributes as needed
+
+		return ss.str();
+	}
+
+
+};
+
+class Mobile : public Consumer {
+private:
+	float km;
+public:
+
+
+	Mobile(Device* device = nullptr) :Consumer(device) {
+	}
+
+	// Destructor
+	virtual ~Mobile() {
+		cout << "Mobile: " << get_description() << "  (this: " << this << ") deleted" << endl;
+	}
+
+	float get_km() const { return km; }
+	void set_km(float h) { km = h; }
+
+	virtual float annual_kWh() const override {
+
+		// Calculate the annual power consumption based on the given formula
+		return  ((this->get_watt() / 1000.0) / (km / 100.0)) * 52 * get_use_multiplier((this->get_use()));
+	}
+
+
+	// Member function for input
+	virtual void input() override {
+		Consumer::input();
+
+		cout << "How many kms will it have? ";
+		cin >> km;
+
+	}
+
+	virtual void print(int intValue, float powerPrice) const override {
+
+		Device::print(intValue, powerPrice);
+		cout << "                              (this: " << this << ")" << endl;
+		cout << setw(COLUMN_WIDTH) << "Power consumption 100 km (kW): " << ((this->get_watt() / 1000.0) / (this->get_km() / 100)) << endl;
+		cout << setw(COLUMN_WIDTH) << "km driven: " << this->get_km() << "  km   " << useToString(this->get_use()) << endl;
+		cout << setw(COLUMN_WIDTH) << "Annual consumption (kWh): " << annual_kWh() << endl;
+		cout << setw(COLUMN_WIDTH) << "Annual costs (EUR): " << annual_kWh() * powerPrice << endl; // Assuming get_powerPrice() is accessible 
+
+		cout << "****************************************************************************************************************" << endl;
+
+	}
+
+
+	// implementation of virtual class  
+	virtual Device* get_a_copy() const override {
+
+		Mobile* copy = new Mobile;
+		*copy = *this;
+		return copy;
+
+	}
+
+
+	virtual string get_string_for_file(char separator) const override {
+
+		//Consumer::get_string_for_file(separator);
+
+		stringstream ss;
+		ss << "Mobile" << separator << this->get_description() << separator << this->get_km()
+			<< separator << this->useToString(this->get_use()) << separator << this->get_watt(); // Add other attributes as needed
+
+		return ss.str();
+	}
+
+
+};
+
+class Solar : public Producer {
+private:
+
+	float watt_peak;
+	int year;
+
+
+public:
+	Solar(Device* device = nullptr) :Producer(device) {
+	}
+
+
+	float get_watt_peak() const { return watt_peak; }
+	void set_watt_peak(float h) { watt_peak = h; }
+	float get_year() const { return year; }
+	void set_year(int y) { year = y; }
+
+
+	// Destructor
+	virtual ~Solar() {
+		cout << "Solar: " << get_description() << " (this: " << this << ") deleted" << endl;
+	}
+
+	// Member function for input
+	virtual void input() override {
+		Producer::input();
+
+		cout << "How many watt_peak will it have? ";
+		cin >> watt_peak;
+
+		cout << "How many years will it have? ";
+		cin >> year;
+
+	}
+
+
+	// Modify the annual_kWh function
+	virtual float annual_kWh() const override {
+		int currentYear = 2024;  // Assuming the current year is 2024
+		float reduction_factor = (currentYear - get_year()) * 0.5;
+		return -get_watt_peak() * ((100 - reduction_factor) / 100); // Return with a negative sign
+	}
+
+	// Modify the print function
+	virtual void print(int intValue, float powerPrice) const override {
+		Device::print(intValue, powerPrice);
+		int currentYear = 2024;  // Assuming the current year is 2024
+		cout << "                              (this: " << this << ")" << endl;
+		cout << setw(COLUMN_WIDTH) << "age of solar cells : " << currentYear - get_year() << endl;
+		cout << setw(COLUMN_WIDTH) << "Power peak: " << get_watt_peak() << endl;
+		cout << setw(COLUMN_WIDTH) << "Annual production (kWh): " << annual_kWh() << endl;
+		cout << setw(COLUMN_WIDTH) << "Annual saving (EUR): " << annual_kWh() * powerPrice << endl;
+
+		cout << "****************************************************************************************************************" << endl;
+	}
+
+
+
+	// Implementierung der virtuellen Funktion in der Klasse Immobile
+	virtual Device* get_a_copy() const override {
+
+		Solar* copy = new Solar;
+		*copy = *this;
+		return copy;
+
+	}
+
+
+	virtual string get_string_for_file(char separator) const override {
+
+		//Solar::get_string_for_file(separator);
+
+		std::stringstream ss;
+		ss << "Solar" << separator << this->get_description() << separator << this->year << separator << this->get_watt_peak(); 
+
+		return ss.str();
+	}
+
+
+
+};
+
+class House {
+private:
+	int number_of_households;
+	vector<Household*> households;  // Vector of raw pointers to Household objects
+	Address address;
+
+public:
+
+
+
+	int get_number_of_households() const {
+		return number_of_households;
+	}
+
+	void increment_number_of_households() {
+		++number_of_households;
+	}
+
+	// Constructor
+	House(int num_households, const Address& addr)
+		: number_of_households(num_households), address(addr) {
+		households.resize(number_of_households, nullptr);
+	}
+
+	House() {}
+
+	// Destructor
+	~House() {
+		for (auto& household : households) {
+			delete household;
+		}
+		cout << "House (this: " << this << ") deleted" << endl;
+	}
+
+	// Method to get a household
+	Household* get_household(int n) const {
+		if (n >= 0 && n < number_of_households) {
+			return households[n];
+		}
+		else {
+			return nullptr;
+		}
+	}
+
+	// Method to set a household
+	void set_household(Household* household, int indexofhouses) {
+		if (indexofhouses >= 0 && indexofhouses < number_of_households) {
+			delete households[indexofhouses];  // Free existing household
+			households[indexofhouses] = household;
+		}
+	}
+
+
+
+	void set_address(const Address& new_address) {
+		address = new_address;
+	}
+
+	void set_number_of_households(int new_number) {
+		number_of_households = new_number;
+		households.resize(number_of_households); // Resize the vector to the new size
+	}
+
+	// Method to print all households
+	void print_all() const {
+		if (this == nullptr) {
+			cout << "House is a nullptr, please first choose 'h' to initialise a new house.\n";
+			return;
+		}
+
+		cout << "======================================================================\n"
+			<< "                                HOUSE\n"
+			<< "======================================================================\n"
+			<< "                              (this: " << this << ")\n"
+			<< "                            address: " << address.to_string() << "\n"
+			<< "               number of households: " << number_of_households << "\n"
+			<< "Total number of power consumers in all households: " << Consumer::getobjectcount() << "\n"
+			<< "======================================================================\n";
+
+		for (int i = 0; i < households.size(); ++i) {
+			if (households[i]) { // Check if the pointer is not nullptr
+				cout << "H O U S E H O L D   N O   " << (i + 1) << "   P O W E R   C O N S U M P T I O N\n"
+					<< "----------------------------------------------------------------------\n";
+				households[i]->printhousehold();
+			}
+
+		}
+
+		cout << "======================================================================\n";
+	}
+
+
+	vector<Household*>& getHouseholds() {
+		return households;
+	}
+
+
+	void clear_households() {
+		for (auto& household : households) {
+			delete household;
+		}
+		households.clear();
+	}
+
+
+	void read_from_file(const string& filename, char separator, House& house) const {
+		ifstream file(filename);
+		if (!file.is_open()) {
+			cerr << "Unable to open file: " << filename << endl;
+			return;
+		}
+
+		// Read and handle the first line for house information
+		string houseInfo;
+		getline(file, houseInfo);
+		stringstream houseStream(houseInfo);
+
+
+		houseStream.ignore(numeric_limits<streamsize>::max(), separator); // Skip the initial part (e.g., "A5;")
+
+		int numHouseholds;
+
+		houseStream >> numHouseholds;
+
+		houseStream.ignore(numeric_limits<streamsize>::max(), separator); // Ignore the separator after the number of households
+
+		string street, houseNumber, zip, city;
+		getline(houseStream, street, separator);
+		getline(houseStream, houseNumber, separator);
+		getline(houseStream, zip, separator);
+		getline(houseStream, city, separator);
+
+
+
+		house.address.set_street(street);
+		house.address.set_no(houseNumber);
+		house.address.set_zip(zip);
+		house.address.set_city(city);
+		house.number_of_households = numHouseholds;
+
+
+		// Update the house's address and number of households
+		house.clear_households();
+		house.households.resize(house.number_of_households, nullptr);
+
+
+		string line;
+		int currentHouseholdIndex = -1;
+		Household* currentHousehold = nullptr;
+
+		while (getline(file, line)) {
+			stringstream lineStream(line);
+			string token;
+			getline(lineStream, token, separator);
+
+			if (token == "Household") {
+				if (currentHousehold != nullptr) {
+					// Save the previous household before creating a new one
+					house.set_household(currentHousehold, currentHouseholdIndex);
+				}
+
+				currentHousehold = new Household();
+				lineStream >> currentHouseholdIndex;
+				lineStream.ignore(numeric_limits<streamsize>::max(), separator);
+				currentHouseholdIndex--; // Adjust for zero-based indexing
+
+				bool isWaterHeated;
+				int persons, squareMeters;
+				float powerPrice;
+				string powerSupplier;
+
+				lineStream >> boolalpha >> isWaterHeated;
+				lineStream.ignore(numeric_limits<streamsize>::max(), separator);
+				lineStream >> persons;
+				lineStream.ignore(numeric_limits<streamsize>::max(), separator);
+				lineStream >> squareMeters;
+				lineStream.ignore(numeric_limits<streamsize>::max(), separator);
+				lineStream >> powerPrice;
+				lineStream.ignore(numeric_limits<streamsize>::max(), separator);
+				getline(lineStream, powerSupplier, separator);
+
+				currentHousehold->set_persons(persons);
+				currentHousehold->set_squareMeters(squareMeters);
+				currentHousehold->set_isWaterHeated(isWaterHeated);
+				currentHousehold->set_powerPrice(powerPrice);
+				currentHousehold->set_powerSupplier(powerSupplier);
+			}
+			else if (token == "Immobile" && currentHousehold) {
+				Immobile* immobile = new Immobile;
+
+				string description, usePattern;
+				float hours, watt, watt_standby;
+
+				getline(lineStream, description, separator);
+				lineStream >> hours;
+				lineStream.ignore(numeric_limits<streamsize>::max(), separator);
+				getline(lineStream, usePattern, separator);
+				lineStream >> watt;
+				lineStream.ignore(numeric_limits<streamsize>::max(), separator);
+				lineStream >> watt_standby;
+
+				/*if (lineStream.fail()) {
+				cerr << "Failed to parse immboile values on line: " << line << endl;
+				lineStream.clear();
+				continue;
+				}*/
+
+				immobile->set_description(description);
+				immobile->set_hours(hours);
+				immobile->set_watt(watt);
+				immobile->set_watt_standby(watt_standby);
+				immobile->set_use(stringToUse(usePattern));
+
+				currentHousehold->add_device(immobile);
+
+			}
+
+			else if (token == "Solar" && currentHousehold) {
+				Solar* solar = new Solar();
+
+				string description;
+				float peak_watt;
+				int year;
+
+				getline(lineStream, description, separator);
+
+				lineStream >> year;
+				lineStream.ignore(numeric_limits<streamsize>::max(), separator);
+				lineStream >> peak_watt;
+				lineStream.ignore(numeric_limits<streamsize>::max(), separator);
+
+				/*if (lineStream.fail()) {
+				cerr << "Failed to parse solar values on line: " << line << endl;
+				lineStream.clear();
+				continue;
+				}*/
+
+				solar->set_description(description);
+				solar->set_year(year);
+				solar->set_watt_peak(peak_watt);
+
+				currentHousehold->add_device(solar);
+
+
+			}
+
+			else if (token == "Mobile" && currentHousehold) {
+				Mobile* mobile = new Mobile;
+
+				string description, usePattern;
+				float km, watt;
+
+				getline(lineStream, description, separator);
+				lineStream >> km;
+				lineStream.ignore(numeric_limits<streamsize>::max(), separator);
+				getline(lineStream, usePattern, separator);
+				lineStream >> watt;
+				lineStream.ignore(numeric_limits<streamsize>::max(), separator);
+
+				/*if (lineStream.fail()) {
+				cerr << "Failed to parse mboile values on line: " << line << endl;
+				lineStream.clear();
+				continue;
+				}*/
+
+				mobile->set_description(description);
+				mobile->set_km(km);
+				mobile->set_watt(watt);
+				mobile->set_use(stringToUse(usePattern));
+
+				currentHousehold->add_device(mobile);
+
+			}
+		}
+
+		if (currentHousehold != nullptr) {
+			house.set_household(currentHousehold, currentHouseholdIndex);
+		}
+
+		file.close();
+	}
+
+
+	void write_to_file(const string& filename, char separator) const {
+		ofstream file(filename);
+		if (!file.is_open()) {
+			cerr << "Error opening file for writing: " << filename << endl;
+			return;
+		}
+
+		// Write header with the format "A5;number_of_households;address"
+		file << "A6" << separator << number_of_households << separator;
+		file << address.get_street() << separator << address.get_no() << separator;
+		file << address.get_zip() << separator << address.get_city() << '\n';
+
+		// Write details of each initialized household
+		for (int i = 0; i < households.size(); i++) {
+			const Household* household = households[i];
+			if (household && household->get_persons() > 0) {
+				// Write household details
+				file << "Household" << separator << (i + 1) << separator
+					<< (household->get_isWaterHeated() ? "true" : "false") << separator
+					<< household->get_persons() << separator << household->get_squareMeters() << separator
+					<< household->get_powerPrice() << separator << household->get_powerSupplier() << "\n";
+
+				// Write consumer details for each consumer in the household
+				const auto& devices = household->get_devices();
+				for (const auto& device : devices) {
+					file << device->get_string_for_file(separator) << "\n";
+				}
+			}
+		}
+
+		file.close();
+	}
+
+
+
+
+};
+
+
+
+
+
+int main() {
+	House* house = nullptr;  // Pointer to a House object
+	char choice;
+	string filename;
+	char separator = ';';  // Define your file separator
+
+	cout << "CALCULATION OF AVERAGE POWER COSTS FOR A HOUSE - CLASS VERSION WITH INHERITANCE\n";
+
+	while (true) {
+		cout << "q quit\n"
+			<< "h house initialisation\n"
+			<< "i input immobile consumer\n"
+			<< "m input mobile consumer\n"
+			<< "s  input solar producer\n"
+			<< "u move up power consumer\n"
+			<< "p print household\n"
+			<< "a print all households\n"
+			<< "d delete house\n"
+
+			<< "n new household\n"
+			<< "c copy all consumers (added to already existing ones)\n"
+			<< "r read data from file\n"
+			<< "w write data into file\n"
+			<< ">> ";
+
+		cin >> choice;
+
+		switch (choice) {
+		case 'q':
+
+			return 0;
+
+		case 'h': {
+			int numHouseholds;
+			Address addr;
+			cout << "How many households does the house have? ";
+			cin >> numHouseholds;
+
+			cin.ignore(numeric_limits<streamsize>::max(), '\n');
+
+			addr.input();  // Input the address
+			house = new House(numHouseholds, addr);
+			break;
+		}
+
+		case 'd': {
+			// Code to handle the delete house operation
+			if (house) {
+				delete house;
+
+				house = nullptr;  // After deleting, set the pointer to nullptr to avoid dangling pointer
+				cout << "House deleted." << endl;
+			}
+			else {
+				cout << "No house to delete." << endl;
+			}
+			break;
+		}
+		case 'i': {
+			if (!house) {
+				cout << "House not initialized." << endl;
+				break;
+			}
+
+			int householdNum;
+			cout << "Number of household to add consumer to? ";
+			cin >> householdNum;
+
+			cin.ignore(numeric_limits<streamsize>::max(), '\n');
+
+			Household* household = nullptr;
+			if (householdNum == 0)
+				household = house->get_household(householdNum);
+			else
+				household = house->get_household(householdNum - 1);
+
+			if (household) {
+				Immobile* immobileConsumer = new Immobile();
+				immobileConsumer->input();
+				cout << "number of consumer before : " << Consumer::getobjectcount() << endl;
+				household->add_device(immobileConsumer);
+				cout << "number of consumer before : " << Consumer::getobjectcount() << endl;
+			}
+			else {
+				cout << "Invalid household number." << endl;
+			}
+			break;
+		}
+
+		case 'm': {
+			if (!house) {
+				cout << "House not initialized." << endl;
+				break;
+			}
+
+			int householdNum;
+			cout << "Number of household to add consumer to? ";
+			cin >> householdNum;
+
+			cin.ignore(numeric_limits<streamsize>::max(), '\n');
+
+			Household* household = nullptr;
+			if (householdNum == 0)
+				household = house->get_household(householdNum);
+			else
+				household = house->get_household(householdNum - 1);
+
+			if (household) {
+				Mobile* mobile = new Mobile();
+				mobile->input();
+				cout << "number of consumer before : " << Consumer::getobjectcount() << endl;
+				household->add_device(mobile);
+				cout << "number of consumer before : " << Consumer::getobjectcount() << endl;
+			}
+			else {
+				cout << "Invalid household number." << endl;
+			}
+			break;
+		}
+
+		case 's': {
+			if (!house) {
+				cout << "House not initialized." << endl;
+				break;
+			}
+
+			int householdNum;
+			cout << "Number of household to add consumer to? ";
+			cin >> householdNum;
+
+			cin.ignore(numeric_limits<streamsize>::max(), '\n');
+			Household* household = nullptr;
+			if (householdNum == 0)
+				household = house->get_household(householdNum);
+			else
+				household = house->get_household(householdNum - 1);
+
+			//Household* household = house->get_household(householdNum);
+			if (household) {
+				Solar* solar = new Solar();
+				solar->input();
+				cout << "number of consumer before : " << Consumer::getobjectcount() << endl;
+				household->add_device(solar);
+				cout << "number of consumer before : " << Consumer::getobjectcount() << endl;
+			}
+			else {
+				cout << "Invalid household number." << endl;
+			}
+			break;
+		}
+
+		case 'u': {
+			if (!house) {
+				cout << "House not initialized." << endl;
+				break;
+			}
+
+			int householdNum, consumerPosition;
+			cout << "Number of household? ";
+			cin >> householdNum;
+
+			cout << "Position of consumer to move up? ";
+			cin >> consumerPosition;
+
+			Household* household = house->get_household(householdNum - 1);
+
+			// ... inside case 'u':
+			if (household) {
+				household->move_up(consumerPosition);
+			}
+			else {
+				cout << "Invalid household number or consumer position." << endl;
+			}
+			break;
+		}
+
+		case 'p': {
+			if (house) {
+				int householdNumber;
+				cout << "Number of household? ";
+				cin >> householdNumber;
+				Household* household = house->get_household(householdNumber - 1);
+				if (household) {
+					household->printhousehold();
+				}
+				else {
+					cout << "Invalid household number." << endl;
+				}
+			}
+			else {
+				cout << "House not initialised." << endl;
+			}
+			break;
+		}
+
+		case 'a': {
+			if (house) {
+				house->print_all();
+			}
+			else {
+				cout << "House not initialised." << endl;
+			}
+			break;
+		}
+
+		case 'n': {
+			if (!house) {
+				cout << "House not initialized." << endl;
+				break;
+			}
+
+			int householdNum;
+			cout << "Number of household? ";
+			cin >> householdNum;
+
+			if (householdNum < 0 || householdNum > house->get_number_of_households()) {
+				cout << "Invalid household number." << endl;
+				break;
+			}
+
+			Household* newHousehold = new Household();
+			newHousehold->input();
+			if (householdNum == 0)
+				house->set_household(newHousehold, householdNum);
+			else
+				house->set_household(newHousehold, householdNum - 1);
+
+
+			break;
+		}
+
+
+		case 'c': {
+			if (!house) {
+				cout << "House not initialized." << endl;
+				break;
+			}
+
+			int fromNum, toNum;
+			cout << "Copy from which household (number)? ";
+			cin >> fromNum;
+
+			cout << "To which household (number)? ";
+			cin >> toNum;
+
+			Household* fromHousehold = house->get_household(fromNum - 1);
+			Household* toHousehold = house->get_household(toNum - 1);
+
+			if (fromHousehold && toHousehold) {
+				toHousehold->copy_devices(fromHousehold, toHousehold);
+			}
+			else {
+				cout << "Invalid household numbers." << endl;
+			}
+			break;
+		}
+
+
+		case 'r': {
+
+			if (!house) {
+				house = new House();
+			}
+
+			string filename;
+
+			cout << "Input file name: ";
+			cin >> filename;
+			cout << "input separator character : ";
+			cin >> separator;
+
+			cout << "Input file \"" << filename << "\" opened..." << endl;
+			house->read_from_file(filename, separator, *house);
+			cout << "Input file \"" << filename << "\" closed" << endl;
+
+			break;
+		}
+
+
+
+		case 'w': {
+			cout << "Input file name: ";
+			cin >> filename;
+
+			cout << "input separator character : ";
+			cin >> separator;
+			if (house) {
+				house->write_to_file(filename, separator);
+			}
+			else {
+				cout << "House not initialised." << endl;
+			}
+			break;
+		}
+
+		default:
+			cout << "Invalid choice. Please try again." << endl;
+			break;
+		}
+
+		// Clear the input buffer
+		//cin.ignore(numeric_limits<streamsize>::max(), '\n');
+	}
+
+	return 0;
+}
+
+
+
