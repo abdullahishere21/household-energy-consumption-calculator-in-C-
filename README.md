@@ -1,6 +1,7 @@
 # household-energy-consumption-calculator-in-C-
 C++ OOP project for managing households, electrical devices, solar production, and annual energy cost calculation
 
+<img width="599" height="593" alt="image" src="https://github.com/user-attachments/assets/98b1eaa3-232d-421e-bbf7-c6ab59b29e41" />
 
 Overview
 
